@@ -11,12 +11,17 @@ jobs:
           java-version: '17'
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.27.1'
+          flutter-version: '3.19.6'
           channel: stable
           cache: true
       - run: flutter config --no-enable-windows-desktop --no-enable-macos-desktop --no-enable-linux-desktop --no-enable-web
       - run: flutter pub get
-      - run: flutter build apk --release
+      - name: Fix broken plugin and kotlin version
+        run: |
+          find $HOME/.pub-cache -name "pubspec.yaml" -path "*print_bluetooth_thermal*" -exec sed -i '/PrintBluetoothThermalPlugin:windows/d; /windows:/d' {} \; || true
+          sed -i "s/ext.kotlin_version = '.*'/ext.kotlin_version = '1.9.22'/" android/build.gradle || true
+          sed -i "s/ext.kotlin_version = \".*\"/ext.kotlin_version = '1.9.22'/" android/build.gradle || true
+      - run: flutter build apk --release --no-tree-shake-icons
       - uses: actions/upload-artifact@v4
         with:
           name: DR-Aquatic-APK
