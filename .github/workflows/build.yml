@@ -15,31 +15,35 @@ jobs:
           channel: stable
           cache: false
 
-      - run: flutter config --no-enable-windows-desktop --no-enable-macos-desktop --no-enable-linux-desktop --no-enable-web
-
-      - name: Download deps (allow fail to get cache)
-        run: flutter pub get || true
-
-      - name: Patch broken plugin & old gradle
+      - name: Disable desktop & first get
         run: |
-          echo "Patching print_bluetooth_thermal..."
-          find $HOME -type f -name "pubspec.yaml" -path "*print_bluetooth_thermal*" -exec sed -i '/windows:/d' {} \; 2>/dev/null || true
-          find $HOME -type f -name "pubspec.yaml" -path "*print_bluetooth_thermal*" -exec sed -i '/PrintBluetoothThermalPlugin:windows/d' {} \; 2>/dev/null || true
-          find $HOME/.pub-cache -type f -name "pubspec.yaml" -path "*print_bluetooth_thermal*" -exec sed -i '/windows:/d' {} \; 2>/dev/null || true
-          find $HOME/.pub-cache -type f -name "pubspec.yaml" -path "*print_bluetooth_thermal*" -exec sed -i '/PrintBluetoothThermalPlugin:windows/d' {} \; 2>/dev/null || true
-          echo "Patching Kotlin & Gradle & SDK..."
-          sed -i "s/ext.kotlin_version = '.*'/ext.kotlin_version = '1.9.22'/" android/build.gradle || true
-          sed -i 's/ext.kotlin_version = ".*"/ext.kotlin_version = "1.9.22"/' android/build.gradle || true
-          sed -i "s/com.android.tools.build:gradle:.*/com.android.tools.build:gradle:7.4.2'/" android/build.gradle || true
-          sed -i "s/compileSdkVersion.*/compileSdkVersion 33/" android/app/build.gradle || true
-          sed -i "s/compileSdk.*/compileSdk 33/" android/app/build.gradle || true
-          sed -i "s/targetSdkVersion.*/targetSdkVersion 33/" android/app/build.gradle || true
-          sed -i "s/targetSdk.*/targetSdk 33/" android/app/build.gradle || true
+          flutter config --no-enable-windows-desktop --no-enable-macos-desktop --no-enable-linux-desktop --no-enable-web
+          flutter pub get || true
+
+      - name: PATCH PATEN - Fix plugin cacat + Kotlin + Gradle + SDK
+        run: |
+          echo "=== PATCH PLUGIN ==="
+          find / -type f -path "*print_bluetooth_thermal*/pubspec.yaml" 2>/dev/null | while read f; do
+            echo "Patching $f"
+            sed -i '/windows:/d' "$f"
+            sed -i '/PrintBluetoothThermalPlugin:windows/d' "$f"
+            sed -i '/pluginClass: PrintBluetoothThermalPlugin/d' "$f"
+          done
+          # Patch proyek utama
+          sed -i "s/ext.kotlin_version = '.*'/ext.kotlin_version = '1.9.22'/" android/build.gradle
+          sed -i 's/ext.kotlin_version = ".*"/ext.kotlin_version = "1.9.22"/' android/build.gradle
+          sed -i "s/org.jetbrains.kotlin:kotlin-gradle-plugin:.*/org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22'/" android/build.gradle || true
+          sed -i "s/com.android.tools.build:gradle:.*/com.android.tools.build:gradle:7.4.2'/" android/build.gradle
+          sed -i "s/compileSdkVersion.*/compileSdkVersion 34/" android/app/build.gradle
+          sed -i "s/compileSdk.*/compileSdk 34/" android/app/build.gradle
+          sed -i "s/targetSdkVersion.*/targetSdkVersion 34/" android/app/build.gradle
+          sed -i "s/targetSdk.*/targetSdk 34/" android/app/build.gradle
+          echo "=== PATCH DONE ==="
 
       - run: flutter pub get
-      - run: flutter build apk --release --no-tree-shake-icons
+      - run: flutter build apk --release --no-tree-shake-icons --verbose
 
       - uses: actions/upload-artifact@v4
         with:
-          name: DR-Aquatic-APK
+          name: DR-Aquatic-APK-PATEN
           path: build/app/outputs/flutter-apk/app-release.apk
