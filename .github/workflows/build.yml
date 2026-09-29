@@ -1,4 +1,4 @@
-name: Build DR Aquatic FINAL FIX
+name: Build APK
 on: [push]
 jobs:
   build:
@@ -12,36 +12,16 @@ jobs:
       - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.24.5'
-          channel: stable
-          cache: false
-
-      - name: Patch all
-        run: |
-          flutter config --no-enable-windows-desktop --no-enable-macos-desktop --no-enable-linux-desktop --no-enable-web
-          sed -i 's/print_bluetooth_thermal:.*/print_bluetooth_thermal: 1.2.1/' pubspec.yaml
-          flutter pub get || true
-          python3 -c "
-          import glob, re, os
-          for p in glob.glob(os.path.expanduser('~/.pub-cache/**/print_bluetooth_thermal*/pubspec.yaml'), recursive=True):
-            t=open(p).read()
-            t=re.sub(r'\n\s+windows:\n(?:\s+.*\n)+', '\n', t)
-            open(p,'w').write(t)
-            print('patched', p)
-          "
-          # INI YANG KEMARIN KELEWAT - PATCH SETTINGS.GRADLE
-          echo '--- settings.gradle before ---'
-          cat android/settings.gradle
-          sed -i -E "s/org.jetbrains.kotlin.android\" version \".*\"/org.jetbrains.kotlin.android\" version \"1.9.22\"/" android/settings.gradle
-          sed -i -E "s/org.jetbrains.kotlin.android' version '.*'/org.jetbrains.kotlin.android' version '1.9.22'/" android/settings.gradle
-          sed -i -E 's/id "org.jetbrains.kotlin.android" version "[0-9.]+"/id "org.jetbrains.kotlin.android" version "1.9.22"/' android/settings.gradle
-          # PATCH BUILD.GRADLE JUGA
-          sed -i -E "s/ext.kotlin_version = '.*'/ext.kotlin_version = '1.9.22'/" android/build.gradle || true
-          sed -i -E 's/ext.kotlin_version = ".*"/ext.kotlin_version = "1.9.22"/' android/build.gradle || true
-          sed -i -E "s/kotlin-gradle-plugin:.*'/kotlin-gradle-plugin:1.9.22'/" android/build.gradle || true
-          sed -i -E "s/com.android.tools.build:gradle:.*'/com.android.tools.build:gradle:7.4.2'/" android/build.gradle || true
-          sed -i "s/compileSdkVersion.*/compileSdkVersion 34/" android/app/build.gradle || true
-          sed -i "s/compileSdk.*/compileSdk 34/" android/app/build.gradle || true
-          sed -i "s/targetSdkVersion.*/targetSdkVersion 34/" android/app/build.gradle || true
-          sed -i "s/targetSdk.*/targetSdk 34/" android/app/build.gradle || true
-          echo '--- settings.gradle after ---'
-          cat
+      - run: flutter config --no-enable-windows-desktop
+      - run: sed -i 's/print_bluetooth_thermal:.*/print_bluetooth_thermal: 1.2.1/' pubspec.yaml
+      - run: flutter pub get || true
+      - run: python3 -c "import glob,re; [open(p,'w').write(re.sub(r'\n\s+windows:\n(?:\s+.*\n)+','\n',open(p).read())) for p in glob.glob('/home/runner/.pub-cache/hosted/pub.dev/print_bluetooth_thermal-*/pubspec.yaml')]"
+      - run: sed -i -E "s/1\.7\.10/1.9.22/g; s/1\.8\.22/1.9.22/g" android/settings.gradle; sed -i -E "s/ext.kotlin_version = '.*'/ext.kotlin_version = '1.9.22'/" android/build.gradle; sed -i "s/compileSdkVersion.*/compileSdkVersion 34/" android/app/build.gradle; sed -i "s/targetSdkVersion.*/targetSdkVersion 34/" android/app/build.gradle
+      - run: flutter clean
+      - run: flutter pub get
+      - run: flutter build apk --release
+      - run: ls build/app/outputs/flutter-apk/
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk
+          path: build/app/outputs/flutter-apk/app-release.apk
