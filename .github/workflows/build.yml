@@ -1,4 +1,4 @@
-name: Build DR Aquatic APK
+name: Build DR Aquatic APK PATEN
 on: [push]
 jobs:
   build:
@@ -15,35 +15,81 @@ jobs:
           channel: stable
           cache: false
 
-      - name: Disable desktop & first get
+      - name: Step 1 - Disable desktop & lock plugin version
         run: |
           flutter config --no-enable-windows-desktop --no-enable-macos-desktop --no-enable-linux-desktop --no-enable-web
-          flutter pub get || true
+          # Lock print_bluetooth_thermal ke 1.2.1 (versi legacy yang stabil)
+          sed -i 's/print_bluetooth_thermal:.*/print_bluetooth_thermal: 1.2.1/' pubspec.yaml
+          cat pubspec.yaml | grep print_bluetooth -A 1 -B 1
 
-      - name: PATCH PATEN - Fix plugin cacat + Kotlin + Gradle + SDK
+      - name: Step 2 - First get (biar ke-download dulu)
+        run: flutter pub get || true
+
+      - name: Step 3 - FIX PLUGIN RUSAK PAKAI PYTHON (cuma hapus windows doang)
         run: |
-          echo "=== PATCH PLUGIN ==="
-          find / -type f -path "*print_bluetooth_thermal*/pubspec.yaml" 2>/dev/null | while read f; do
-            echo "Patching $f"
-            sed -i '/windows:/d' "$f"
-            sed -i '/PrintBluetoothThermalPlugin:windows/d' "$f"
-            sed -i '/pluginClass: PrintBluetoothThermalPlugin/d' "$f"
-          done
-          # Patch proyek utama
-          sed -i "s/ext.kotlin_version = '.*'/ext.kotlin_version = '1.9.22'/" android/build.gradle
-          sed -i 's/ext.kotlin_version = ".*"/ext.kotlin_version = "1.9.22"/' android/build.gradle
-          sed -i "s/org.jetbrains.kotlin:kotlin-gradle-plugin:.*/org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22'/" android/build.gradle || true
-          sed -i "s/com.android.tools.build:gradle:.*/com.android.tools.build:gradle:7.4.2'/" android/build.gradle
-          sed -i "s/compileSdkVersion.*/compileSdkVersion 34/" android/app/build.gradle
-          sed -i "s/compileSdk.*/compileSdk 34/" android/app/build.gradle
-          sed -i "s/targetSdkVersion.*/targetSdkVersion 34/" android/app/build.gradle
-          sed -i "s/targetSdk.*/targetSdk 34/" android/app/build.gradle
-          echo "=== PATCH DONE ==="
+          python3 << 'PY'
+          import os, glob, re
+          # cari semua pubspec plugin yang rusak
+          paths = glob.glob(os.path.expanduser("~/.pub-cache/**/print_bluetooth_thermal*/pubspec.yaml"), recursive=True)
+          paths += glob.glob("/opt/**/print_bluetooth_thermal*/pubspec.yaml", recursive=True)
+          paths += glob.glob(os.path.expanduser("~/hostedtoolcache/**/print_bluetooth_thermal*/pubspec.yaml"), recursive=True)
+          # hapus duplikat
+          paths = list(set(paths))
+          print(f"Found {len(paths)} files to patch")
+          for p in paths:
+            try:
+              with open(p, 'r') as f:
+                content = f.read()
+              # Backup
+              print(f"Patching: {p}")
+              # Hapus blok windows: dengan regex yang aman (hanya hapus windows, jangan hapus android/ios)
+              # Pattern: cari " windows:" sampai platform berikutnya (6 spasi + nama:)
+              # Simpler: hapus baris yang mengandung windows dan pluginClass windows
+              lines = content.split('\n')
+              new_lines = []
+              skip = False
+              for line in lines:
+                  if 'windows:' in line and ' windows:' in line:
+                      skip = True
+                      continue
+                  if skip:
+                      # jika ketemu platform baru dengan indent 6 spasi, stop skip
+                      if re.match(r'^\s{6}[a-z_]+:\s*$', line):
+                          skip = False
+                          new_lines.append(line)
+                      elif 'pluginClass' in line and skip:
+                          continue
+                      else:
+                          # masih di dalam block windows, cek indent
+                          if line.strip() == '' or line.startswith(' '):
+                              continue
+                          else:
+                              skip = False
+                              new_lines.append(line)
+                  else:
+                      new_lines.append(line)
+              # Tulis balik tapi pastikan android masih utuh
+              with open(p, 'w') as f:
+                  f.write('\n'.join(new_lines))
+              print(f"OK patched {p}")
+            except Exception as e:
+              print(f"Fail {p}: {e}")
+          PY
+          echo "Patch Kotlin & Gradle & SDK"
+          sed -i "s/ext.kotlin_version = '.*'/ext.kotlin_version = '1.9.22'/" android/build.gradle || true
+          sed -i 's/ext.kotlin_version = ".*"/ext.kotlin_version = "1.9.22"/' android/build.gradle || true
+          sed -i "s/com.android.tools.build:gradle:.*/com.android.tools.build:gradle:7.4.2'/" android/build.gradle || true
+          sed -i "s/compileSdkVersion.*/compileSdkVersion 34/" android/app/build.gradle || true
+          sed -i "s/compileSdk.*/compileSdk 34/" android/app/build.gradle || true
+          sed -i "s/targetSdkVersion.*/targetSdkVersion 34/" android/app/build.gradle || true
+          sed -i "s/targetSdk.*/targetSdk 34/" android/app/build.gradle || true
 
-      - run: flutter pub get
-      - run: flutter build apk --release --no-tree-shake-icons --verbose
+      - name: Step 4 - Pub get beneran & Build APK
+        run: |
+          flutter pub get
+          flutter build apk --release --no-tree-shake-icons
 
       - uses: actions/upload-artifact@v4
         with:
-          name: DR-Aquatic-APK-PATEN
+          name: DR-Aquatic-APK-LULUS
           path: build/app/outputs/flutter-apk/app-release.apk
