@@ -1,4 +1,4 @@
-name: Build DR Aquatic APK FINAL
+name: Build DR Aquatic FINAL FIX
 on: [push]
 jobs:
   build:
@@ -15,54 +15,33 @@ jobs:
           channel: stable
           cache: false
 
-      - name: Step 1 - Lock plugin version
+      - name: Patch all
         run: |
           flutter config --no-enable-windows-desktop --no-enable-macos-desktop --no-enable-linux-desktop --no-enable-web
           sed -i 's/print_bluetooth_thermal:.*/print_bluetooth_thermal: 1.2.1/' pubspec.yaml
-
-      - run: flutter pub get || true
-
-      - name: Step 2 - Patch plugin (hapus windows doang)
-        run: |
-          python3 << 'PY'
-          import os, glob, re
-          paths = glob.glob(os.path.expanduser("~/.pub-cache/**/print_bluetooth_thermal*/pubspec.yaml"), recursive=True)
-          for p in set(paths):
-            try:
-              with open(p) as f: txt=f.read()
-              # hapus blok windows dengan regex
-              txt = re.sub(r'\n\s{6}windows:\n(?:\s{8}.*\n)+', '\n', txt)
-              with open(p,'w') as f: f.write(txt)
-              print(f"patched {p}")
-            except Exception as e:
-              print(e)
-          PY
-
-      - name: Step 3 - PATCH KOTLIN & GRADLE PATEN
-        run: |
-          echo "Before:"
-          cat android/build.gradle
-          # patch semua kemungkinan format kutip
-          sed -i -E "s/ext.kotlin_version = '.*'/ext.kotlin_version = '1.9.22'/" android/build.gradle
-          sed -i -E 's/ext.kotlin_version = ".*"/ext.kotlin_version = "1.9.22"/' android/build.gradle
-          sed -i -E "s/kotlin_version = '.*'/kotlin_version = '1.9.22'/" android/build.gradle
-          sed -i -E 's/kotlin_version = ".*"/kotlin_version = "1.9.22"/' android/build.gradle
-          sed -i -E "s/org.jetbrains.kotlin:kotlin-gradle-plugin:[0-9.]+/org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.22/" android/build.gradle
-          sed -i -E "s/com.android.tools.build:gradle:[0-9.]+/com.android.tools.build:gradle:7.4.2/" android/build.gradle
-          sed -i "s/compileSdkVersion.*/compileSdkVersion 34/" android/app/build.gradle
-          sed -i "s/compileSdk.*/compileSdk 34/" android/app/build.gradle
-          sed -i "s/targetSdkVersion.*/targetSdkVersion 34/" android/app/build.gradle
-          sed -i "s/targetSdk.*/targetSdk 34/" android/app/build.gradle
-          # update gradle wrapper
-          sed -i "s/gradle-.*-all.zip/gradle-7.5-all.zip/" android/gradle/wrapper/gradle-wrapper.properties || true
-          echo "After:"
-          cat android/build.gradle
-          cat android/gradle/wrapper/gradle-wrapper.properties
-
-      - run: flutter pub get
-      - run: flutter build apk --release --no-tree-shake-icons
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: DR-Aquatic-APK-FINAL-LULUS
-          path: build/app/outputs/flutter-apk/app-release.apk
+          flutter pub get || true
+          python3 -c "
+          import glob, re, os
+          for p in glob.glob(os.path.expanduser('~/.pub-cache/**/print_bluetooth_thermal*/pubspec.yaml'), recursive=True):
+            t=open(p).read()
+            t=re.sub(r'\n\s+windows:\n(?:\s+.*\n)+', '\n', t)
+            open(p,'w').write(t)
+            print('patched', p)
+          "
+          # INI YANG KEMARIN KELEWAT - PATCH SETTINGS.GRADLE
+          echo '--- settings.gradle before ---'
+          cat android/settings.gradle
+          sed -i -E "s/org.jetbrains.kotlin.android\" version \".*\"/org.jetbrains.kotlin.android\" version \"1.9.22\"/" android/settings.gradle
+          sed -i -E "s/org.jetbrains.kotlin.android' version '.*'/org.jetbrains.kotlin.android' version '1.9.22'/" android/settings.gradle
+          sed -i -E 's/id "org.jetbrains.kotlin.android" version "[0-9.]+"/id "org.jetbrains.kotlin.android" version "1.9.22"/' android/settings.gradle
+          # PATCH BUILD.GRADLE JUGA
+          sed -i -E "s/ext.kotlin_version = '.*'/ext.kotlin_version = '1.9.22'/" android/build.gradle || true
+          sed -i -E 's/ext.kotlin_version = ".*"/ext.kotlin_version = "1.9.22"/' android/build.gradle || true
+          sed -i -E "s/kotlin-gradle-plugin:.*'/kotlin-gradle-plugin:1.9.22'/" android/build.gradle || true
+          sed -i -E "s/com.android.tools.build:gradle:.*'/com.android.tools.build:gradle:7.4.2'/" android/build.gradle || true
+          sed -i "s/compileSdkVersion.*/compileSdkVersion 34/" android/app/build.gradle || true
+          sed -i "s/compileSdk.*/compileSdk 34/" android/app/build.gradle || true
+          sed -i "s/targetSdkVersion.*/targetSdkVersion 34/" android/app/build.gradle || true
+          sed -i "s/targetSdk.*/targetSdk 34/" android/app/build.gradle || true
+          echo '--- settings.gradle after ---'
+          cat
