@@ -16,7 +16,11 @@ jobs:
       - run: |
           printf '%s\n' 'pluginManagement {' ' def flutterSdkPath = {' ' def properties = new Properties()' ' file("local.properties").withInputStream { properties.load(it) }' ' return properties.getProperty("flutter.sdk")' ' }()' ' includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")' ' repositories { google(); mavenCentral(); gradlePluginPortal() }' '}' 'plugins {' ' id "dev.flutter.flutter-plugin-loader" version "1.0.0"' ' id "com.android.application" version "8.1.0" apply false' ' id "org.jetbrains.kotlin.android" version "1.9.22" apply false' '}' 'include ":app"' > android/settings.gradle
           printf '%s\n' 'buildscript {' " ext.kotlin_version = '1.9.22'" ' repositories { google(); mavenCentral() }' ' dependencies { classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version" }' '}' 'allprojects { repositories { google(); mavenCentral() } }' 'rootProject.buildDir = "../build"' 'subprojects { project.buildDir = "${rootProject.buildDir}/${project.name}" }' 'subprojects { project.evaluationDependsOn(":app") }' 'tasks.register("clean", Delete) { delete rootProject.buildDir }' > android/build.gradle
-      - run: flutter config --no-enable-windows-desktop --no-enable-macos-desktop --no-enable-linux-desktop --no-enable-web
+      - name: fix pubspec biang kerok
+        run: |
+          sed -i '/usb_esc_printer_windows/d' pubspec.yaml
+          cat pubspec.yaml | grep -A2 -B2 "print_bluetooth"
+          flutter config --no-enable-windows --no-enable-macos --no-enable-linux --no-enable-web
       - run: flutter clean
       - run: flutter pub get
       - run: flutter build apk --release
