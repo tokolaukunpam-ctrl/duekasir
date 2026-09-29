@@ -11,17 +11,18 @@ jobs:
           java-version: '17'
       - uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.5'
-      - name: fix
+          flutter-version: '3.22.3'
+      - name: fix total
         run: |
           flutter config --no-enable-windows-desktop --no-enable-macos-desktop --no-enable-linux-desktop --no-enable-web
           flutter pub get
           find $HOME/.pub-cache -path *print_bluetooth_thermal*/pubspec.yaml -exec sed -i /windows:/d {} \;
           sed -i -E s/1.7.10/1.9.22/g android/settings.gradle
           sed -i -E s/1.8.22/1.9.22/g android/settings.gradle
-          sed -i s/compileSdkVersion.*/compileSdkVersion\ 34/ android/app/build.gradle
-          sed -i s/targetSdkVersion.*/targetSdkVersion\ 34/ android/app/build.gradle
-      - run: flutter build apk --release --no-tree-shake-icons
+          sed -i s/compileSdkVersion/compileSdk/g android/app/build.gradle
+          sed -i s/targetSdkVersion/targetSdk/g android/app/build.gradle
+          cat android/app/build.gradle | head -n 50
+      - run: flutter build apk --release
       - uses: actions/upload-artifact@v4
         with:
           name: DR-Aquatic-APK
