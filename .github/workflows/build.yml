@@ -13,50 +13,51 @@ jobs:
         with:
           flutter-version: '3.24.5'
           cache: false
-      - name: fix all root causes
+      - name: fix kotlin total
         run: |
           flutter config --no-enable-windows-desktop --no-enable-macos-desktop --no-enable-linux-desktop --no-enable-web
-          flutter pub get || true
-          find $HOME/.pub-cache -path "*print_bluetooth_thermal*" -name "pubspec.yaml" -exec sed -i '/windows:/d' {} \;
-          sed -i -E 's/1.7.10/1.9.22/g; s/1.8.22/1.9.22/g' android/settings.gradle
-          APP_ID=$(grep -o 'applicationId "[^"]*"' android/app/build.gradle | head -1 | cut -d'"' -f2)
-          if [ -z "$APP_ID" ]; then APP_ID="com.example.due_kasir"; fi
-          echo "APP_ID=$APP_ID"
-          cat > android/app/build.gradle <<EOF
+          find $HOME/.pub-cache -path "*print_bluetooth_thermal*" -name "pubspec.yaml" -exec sed -i '/windows:/d' {} \; || true
+          cat > android/settings.gradle <<'EOF'
+          pluginManagement {
+              def flutterSdkPath = {
+                  def properties = new Properties()
+                  file("local.properties").withInputStream { properties.load(it) }
+                  def flutterSdkPath = properties.getProperty("flutter.sdk")
+                  assert flutterSdkPath!= null, "flutter.sdk not set"
+                  return flutterSdkPath
+              }()
+              includeBuild("$flutterSdkPath/packages/flutter_tools/gradle")
+              repositories { google(); mavenCentral(); gradlePluginPortal() }
+          }
           plugins {
-              id "com.android.application"
-              id "kotlin-android"
-              id "dev.flutter.flutter-gradle-plugin"
+              id "dev.flutter.flutter-plugin-loader" version "1.0.0"
+              id "com.android.application" version "8.1.0" apply false
+              id "org.jetbrains.kotlin.android" version "1.9.22" apply false
           }
-          android {
-              namespace = "$APP_ID"
-              compileSdk = 34
-              ndkVersion = flutter.ndkVersion
-              compileOptions {
-                  sourceCompatibility = JavaVersion.VERSION_1_8
-                  targetCompatibility = JavaVersion.VERSION_1_8
-              }
-              kotlinOptions {
-                  jvmTarget = "1.8"
-              }
-              defaultConfig {
-                  applicationId = "$APP_ID"
-                  minSdk = flutter.minSdkVersion
-                  targetSdk = 34
-                  versionCode = flutter.versionCode
-                  versionName = flutter.versionName
-              }
-              buildTypes {
-                  release {
-                      signingConfig = signingConfigs.getByName("debug")
-                  }
-              }
-          }
-          flutter {
-              source = "../.."
-          }
+          include ":app"
           EOF
-          cat android/app/build.gradle
+          cat > android/build.gradle <<'EOF'
+          buildscript {
+              ext.kotlin_version = '1.9.22'
+              repositories { google(); mavenCentral() }
+              dependencies { classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version" }
+          }
+          allprojects { repositories { google(); mavenCentral() } }
+          rootProject.buildDir = "../build"
+          subprojects { project.buildDir = "${rootProject.buildDir}/${project.name}" }
+          subprojects { project.evaluationDependsOn(":app") }
+          tasks.register("clean", Delete) { delete rootProject.buildDir }
+          EOF
+          APP_ID=$(grep -o 'applicationId "[^"]*"' android/app/build.gradle | head -1 | cut -d'"' -f2); if [ -z "$APP_ID" ]; then APP_ID="com.example.due_kasir"; fi
+          cat > android/app/build.gradle <<EOF
+          plugins { id "com.android.application"; id "kotlin-android"; id "dev.flutter.flutter-gradle-plugin" }
+          android { namespace = "$APP_ID"; compileSdk = 34; ndkVersion = flutter.ndkVersion
+              compileOptions { sourceCompatibility = JavaVersion.VERSION_1_8; targetCompatibility = JavaVersion.VERSION_1_8 }
+              kotlinOptions { jvmTarget = "1.8" }
+              defaultConfig { applicationId = "$APP_ID"; minSdk = flutter.minSdkVersion; targetSdk = 34; versionCode = flutter.versionCode; versionName = flutter.versionName }
+              buildTypes { release { signingConfig = signingConfigs.getByName("debug") } } }
+          flutter { source = "../.." }
+          EOF
       - run: flutter clean
       - run: flutter pub get
       - run: flutter build apk --release --no-tree-shake-icons
