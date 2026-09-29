@@ -15,18 +15,14 @@ jobs:
       - name: fix
         run: |
           flutter config --no-enable-windows-desktop --no-enable-macos-desktop --no-enable-linux-desktop --no-enable-web
-          sed -i 's/print_bluetooth_thermal:.*/print_bluetooth_thermal: 1.2.1/' pubspec.yaml
-          flutter pub get || true
-          find $HOME/.pub-cache -name pubspec.yaml -path *print_bluetooth_thermal* -exec sed -i /windows:/d {} \;
+          flutter pub get
+          find $HOME/.pub-cache -path *print_bluetooth_thermal*/pubspec.yaml -exec sed -i /windows:/d {} \;
           sed -i -E s/1.7.10/1.9.22/g android/settings.gradle
           sed -i -E s/1.8.22/1.9.22/g android/settings.gradle
-          sed -i -E s/ext.kotlin_version.*=.*'.*'/ext.kotlin_version\ =\ '1.9.22'/ android/build.gradle
           sed -i s/compileSdkVersion.*/compileSdkVersion\ 34/ android/app/build.gradle
           sed -i s/targetSdkVersion.*/targetSdkVersion\ 34/ android/app/build.gradle
-      - run: flutter clean
-      - run: flutter pub get
-      - run: flutter build apk --release
+      - run: flutter build apk --release --no-tree-shake-icons
       - uses: actions/upload-artifact@v4
         with:
-          name: apk
+          name: DR-Aquatic-APK
           path: build/app/outputs/flutter-apk/app-release.apk
