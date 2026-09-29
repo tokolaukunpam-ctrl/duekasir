@@ -14,6 +14,7 @@ jobs:
           flutter-version: '3.27.1'
           channel: stable
           cache: true
+      - run: flutter config --no-enable-windows-desktop --no-enable-macos-desktop --no-enable-linux-desktop --no-enable-web
       - run: flutter pub get
       - run: flutter build apk --release
       - uses: actions/upload-artifact@v4
