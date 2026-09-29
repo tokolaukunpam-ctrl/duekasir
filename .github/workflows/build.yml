@@ -19,7 +19,6 @@ jobs:
       - name: fix pubspec biang kerok
         run: |
           sed -i '/usb_esc_printer_windows/d' pubspec.yaml
-          cat pubspec.yaml | grep -A2 -B2 "print_bluetooth"
           flutter config --no-enable-windows --no-enable-macos --no-enable-linux --no-enable-web
       - run: flutter clean
       - run: flutter pub get
